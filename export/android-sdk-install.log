@@ -34,8 +34,8 @@ drwxrwxrwx 20 root root  4096 Sep  7 21:55 platforms
 + echo ANDROID_SDK_ROOT=/usr/local/lib/android/sdk
 + echo 'Using sdkmanager: /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager'
 Using sdkmanager: /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager
-+ /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses
 + yes
++ /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager --licenses
 yes: standard output: Broken pipe
 + true
 + /usr/local/lib/android/sdk/cmdline-tools/latest/bin/sdkmanager platform-tools 'platforms;android-34' 'build-tools;34.0.0'
