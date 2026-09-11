@@ -41,8 +41,14 @@ jobs:
         run: |
           set -euxo pipefail
           echo "ANDROID_HOME=${ANDROID_HOME}"
-          yes | sdkmanager --licenses >/dev/null
-          sdkmanager "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+          SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "${SDKMANAGER}" ]; then
+            SDKMANAGER="$(find "${ANDROID_HOME}" -path '*/cmdline-tools/*/bin/sdkmanager' -type f | sort -V | tail -n 1)"
+          fi
+          test -n "${SDKMANAGER}"
+          echo "Using sdkmanager: ${SDKMANAGER}"
+          yes | "${SDKMANAGER}" --licenses >/dev/null
+          "${SDKMANAGER}" "platform-tools" "platforms;android-34" "build-tools;34.0.0"
           ls "${ANDROID_HOME}/platforms/android-34"
           ls "${ANDROID_HOME}/build-tools"
 
