@@ -39,33 +39,49 @@ jobs:
       - name: Install Android SDK command-line tools and packages
         shell: bash
         run: |
-          set -euxo pipefail
-          ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
-          ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
-          SDKMANAGER=""
-          if [ -d "${ANDROID_HOME}" ]; then
-            SDKMANAGER="$(find "${ANDROID_HOME}" -path '*/cmdline-tools/*/bin/sdkmanager' -type f | sort -V | tail -n 1 || true)"
-          fi
-          if [ -z "${SDKMANAGER}" ] || [ ! -x "${SDKMANAGER}" ]; then
-            ANDROID_HOME="$HOME/android-sdk"
-            ANDROID_SDK_ROOT="$ANDROID_HOME"
-            rm -rf "${ANDROID_HOME}"
-            mkdir -p "${ANDROID_HOME}/cmdline-tools"
-            cd "${RUNNER_TEMP}"
-            curl --retry 3 --retry-delay 5 -fL -o commandlinetools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
-            rm -rf "${RUNNER_TEMP}/android-cmdline"
-            unzip -q commandlinetools.zip -d "${RUNNER_TEMP}/android-cmdline"
-            mv "${RUNNER_TEMP}/android-cmdline/cmdline-tools" "${ANDROID_HOME}/cmdline-tools/latest"
-            SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
-          fi
-          test -x "${SDKMANAGER}"
-          echo "ANDROID_HOME=${ANDROID_HOME}" >> "${GITHUB_ENV}"
-          echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT}" >> "${GITHUB_ENV}"
-          echo "Using sdkmanager: ${SDKMANAGER}"
-          yes | "${SDKMANAGER}" --licenses >/dev/null
-          "${SDKMANAGER}" "platform-tools" "platforms;android-34" "build-tools;34.0.0"
-          ls "${ANDROID_HOME}/platforms/android-34"
-          ls "${ANDROID_HOME}/build-tools"
+          set -o pipefail
+          mkdir -p export
+          {
+            set -eux
+            ANDROID_HOME="${ANDROID_HOME:-/usr/local/lib/android/sdk}"
+            ANDROID_SDK_ROOT="${ANDROID_SDK_ROOT:-$ANDROID_HOME}"
+            echo "Initial ANDROID_HOME=${ANDROID_HOME}"
+            echo "Initial ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT}"
+            ls -la "${ANDROID_HOME}" || true
+            find "${ANDROID_HOME}" -maxdepth 4 -type f -name sdkmanager -print || true
+            SDKMANAGER=""
+            if [ -d "${ANDROID_HOME}" ]; then
+              SDKMANAGER="$(find "${ANDROID_HOME}" -path '*/cmdline-tools/*/bin/sdkmanager' -type f | sort -V | tail -n 1 || true)"
+            fi
+            if [ -z "${SDKMANAGER}" ] || [ ! -x "${SDKMANAGER}" ]; then
+              ANDROID_HOME="$HOME/android-sdk"
+              ANDROID_SDK_ROOT="$ANDROID_HOME"
+              rm -rf "${ANDROID_HOME}"
+              mkdir -p "${ANDROID_HOME}/cmdline-tools" "${RUNNER_TEMP}/android-cmdline"
+              cd "${RUNNER_TEMP}"
+              curl --retry 3 --retry-delay 5 -fL -o commandlinetools.zip https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip
+              ls -lh commandlinetools.zip
+              python3 - <<'PY'
+          from pathlib import Path
+          p=Path('commandlinetools.zip')
+          print(p.read_bytes()[:128])
+          PY
+              rm -rf "${RUNNER_TEMP}/android-cmdline"
+              mkdir -p "${RUNNER_TEMP}/android-cmdline"
+              unzip -q commandlinetools.zip -d "${RUNNER_TEMP}/android-cmdline"
+              mv "${RUNNER_TEMP}/android-cmdline/cmdline-tools" "${ANDROID_HOME}/cmdline-tools/latest"
+              SDKMANAGER="${ANDROID_HOME}/cmdline-tools/latest/bin/sdkmanager"
+            fi
+            test -x "${SDKMANAGER}"
+            echo "ANDROID_HOME=${ANDROID_HOME}" >> "${GITHUB_ENV}"
+            echo "ANDROID_SDK_ROOT=${ANDROID_SDK_ROOT}" >> "${GITHUB_ENV}"
+            echo "Using sdkmanager: ${SDKMANAGER}"
+            yes | "${SDKMANAGER}" --licenses >/dev/null
+            "${SDKMANAGER}" "platform-tools" "platforms;android-34" "build-tools;34.0.0"
+            ls "${ANDROID_HOME}/platforms/android-34"
+            ls "${ANDROID_HOME}/build-tools"
+          } 2>&1 | tee export/android-sdk-install.log
+          exit "${PIPESTATUS[0]}"
 
       - name: Install OpenCV 4.9.0 Android SDK
         shell: bash
@@ -177,4 +193,23 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add "${APK_EXPORT_DIR}/${APK_EXPORT_NAME}" "${APK_EXPORT_DIR}/apksigner-verify.txt" "${APK_EXPORT_DIR}/sha256.txt" "${APK_EXPORT_DIR}/size.txt"
           git commit -m "Export signed QAHarness APK [skip ci]" || exit 0
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Commit failure diagnostics to this branch
+        if: failure()
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p export
+          {
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "sha=${GITHUB_SHA}"
+            echo "ref=${GITHUB_REF_NAME}"
+            date -u
+            find export -maxdepth 1 -type f -print -exec ls -lh {} \;
+          } > export/failure-diagnostics.txt
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add export/*.log export/failure-diagnostics.txt || true
+          git commit -m "Add APK workflow failure diagnostics [skip ci]" || exit 0
           git push origin "HEAD:${GITHUB_REF_NAME}"
