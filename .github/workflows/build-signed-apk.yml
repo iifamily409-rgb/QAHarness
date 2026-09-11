@@ -143,20 +143,33 @@ jobs:
         working-directory: ${{ env.PROJECT_DIR }}
         shell: bash
         run: |
-          set -euxo pipefail
-          if [ ! -x ./gradlew ]; then
-            gradle wrapper --gradle-version 8.7
-          fi
-          chmod +x ./gradlew
-          ./gradlew --version --no-daemon
+          set -o pipefail
+          mkdir -p ../export
+          {
+            set -eux
+            pwd
+            ls -la
+            gradle --version
+            if [ ! -x ./gradlew ]; then
+              gradle wrapper --gradle-version 8.7 --stacktrace --no-daemon
+            fi
+            chmod +x ./gradlew
+            ./gradlew --version --no-daemon
+          } 2>&1 | tee ../export/gradle-wrapper.log
+          exit "${PIPESTATUS[0]}"
 
       - name: Build release APK
         working-directory: ${{ env.PROJECT_DIR }}
         shell: bash
         run: |
-          set -euxo pipefail
-          ./gradlew clean assembleRelease --stacktrace --no-daemon
-          find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -print -exec ls -lh {} \;
+          set -o pipefail
+          mkdir -p ../export
+          {
+            set -eux
+            ./gradlew clean assembleRelease --stacktrace --no-daemon
+            find app/build/outputs/apk/release -maxdepth 1 -type f -name '*.apk' -print -exec ls -lh {} \;
+          } 2>&1 | tee ../export/gradle-build.log
+          exit "${PIPESTATUS[0]}"
 
       - name: Verify, hash, and stage APK export
         shell: bash
