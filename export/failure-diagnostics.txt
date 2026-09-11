@@ -1,0 +1,8 @@
+run_id=34585561151
+sha=ed0120e6255b5544176a872703625af7711016be
+ref=arena/01a08fcb-qaharness
+Fri Sep 11 09:42:57 UTC 2026
+export/android-sdk-install.log
+-rw-r--r-- 1 runner runner 2.0K Sep 11 09:42 export/android-sdk-install.log
+export/failure-diagnostics.txt
+-rw-r--r-- 1 runner runner 260 Sep 11 09:42 export/failure-diagnostics.txt
