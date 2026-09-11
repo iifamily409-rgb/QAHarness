@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">QA Capture Harness</string>
+    <string name="start_capture">Start Capture</string>
+    <string name="preview_image">Preview image</string>
+    <string name="default_log">Waiting for capture output…</string>
+</resources>
